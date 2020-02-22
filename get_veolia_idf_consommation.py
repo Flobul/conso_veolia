@@ -31,7 +31,7 @@ veolia_login = 'mon.adresse@email.com'
 veolia_password = 'M-eau2P@ss'
 
 #Emplacement de sauvegarde du fichier à télécharger
-downloadPath = '/home/blackou/Documents/'
+downloadPath = '/home/toto/Documents/'
 downloadFile = downloadPath + 'historique_jours_litres.csv'
 
 options = webdriver.FirefoxOptions()
