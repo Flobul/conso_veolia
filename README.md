@@ -20,7 +20,8 @@ veolia_password = 'M-eau2P@ss'
 
 ## Résultat
 
-```$ python3 get_veolia_idf_consommation.py
+```
+$ python3 get_veolia_idf_consommation.py
 2020-02-22 15:44:12,918 :: INFO :: Successfully started X with display ":1164".
 2020-02-22 15:44:15,139 :: INFO :: Page de login
 2020-02-22 15:44:27,472 :: INFO :: Page de consommation
