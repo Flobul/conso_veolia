@@ -1,88 +1,116 @@
 from selenium import webdriver
-import http.cookiejar
-import urllib
 import os
 import sys
 import time
+import config
+import json
+import glob
 import csv
-import logging
-from logging.handlers import RotatingFileHandler
 from pyvirtualdisplay import Display
+import logging
+import logging.config
+logging.config.dictConfig(config.LOGGING_CONFIG)
 
-# Configuration des logs
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
-formatter = logging.Formatter('%(asctime)s :: %(levelname)s :: %(message)s')
-file_handler = RotatingFileHandler('veolia.log', 'a', 1000000, 1)
-file_handler.setLevel(logging.INFO)
-file_handler.setFormatter(formatter)
-logger.addHandler(file_handler)
-steam_handler = logging.StreamHandler()
-steam_handler.setLevel(logging.INFO)
-steam_handler.setFormatter(formatter)
-logger.addHandler(steam_handler)
 
-#URL des pages nécessaires
-urlHome = 'https://espace-client.vedif.eau.veolia.fr/s/login/'
-urlConso = 'https://espace-client.vedif.eau.veolia.fr/s/historique'
+class VeoliaIdf:
+    def __init__(self):
+        self._purge_tmp()
+        options = webdriver.FirefoxOptions()
+        options.add_argument('-headless')
+        options.add_argument("--no-sandbox")
+        self.display = Display(visible=0, size=(800, 600))
+        self.display.start()
 
-#Informations de connexion
-veolia_login = 'mon.adresse@email.com'
-veolia_password = 'M-eau2P@ss'
+        profile = webdriver.FirefoxProfile()
+        options = webdriver.FirefoxOptions()
+        options.headless = True
+        profile.set_preference('browser.download.folderList', 2)
+        profile.set_preference('browser.download.manager.showWhenStarting', False)
+        profile.set_preference('browser.download.dir', config.DOWNLOAD_DIR_TMP)
+        profile.set_preference('browser.helperApps.neverAsk.saveToDisk', 'text/csv')
 
-#Emplacement de sauvegarde du fichier à télécharger
-downloadPath = '/home/toto/Documents/'
-downloadFile = downloadPath + 'historique_jours_litres.csv'
+        self.browser = webdriver.Firefox(firefox_profile=profile, options=options, executable_path=config.GECKODRIVER_PATH, service_log_path=os.path.join(config.BASE_DIR, 'logs',  'geckodriver.log'))
+        
 
-options = webdriver.FirefoxOptions()
-options.add_argument('-headless')
-options.add_argument("--no-sandbox")
+    def _purge_tmp(self):
+        csv_files = glob.glob('%s/*.csv'%config.DOWNLOAD_DIR_TMP)
+        for f in csv_files:
+            os.remove(f)
+        
+    def take_screenshot(self, name):
+        logging.debug("Taking screenshot : %s"%name)
+        fpath = os.path.join(config.BASE_DIR, 'logs', name)
+        self.browser.save_screenshot('%s.png'%fpath)
+        # print(self.browser.page_source)
 
-#Démarre l'affichage virtuel
-display = Display(visible=0, size=(800, 600))
-display.start()
+    def get_csv(self):
+        url_home = 'https://espace-client.vedif.eau.veolia.fr/s/login/'
+        url_conso = 'https://espace-client.vedif.eau.veolia.fr/s/historique'
+        browser = self.browser
+        browser.implicitly_wait(10)
+        try:
+            browser.get(url_home)
+            email_field = browser.find_element_by_css_selector('input[type="email"]')
+            password_field = browser.find_element_by_css_selector('input[type="password"]')
 
-profile = webdriver.FirefoxProfile()
-options = webdriver.FirefoxOptions()
-options.headless = True
-profile.set_preference('browser.download.folderList', 2)
-profile.set_preference('browser.download.manager.showWhenStarting', False)
-profile.set_preference('browser.download.dir', downloadPath)
-profile.set_preference('browser.helperApps.neverAsk.saveToDisk', 'text/csv')
+            email_field.clear()
+            email_field.send_keys(config.VEOLIA_LOGIN)
+            time.sleep(2)
+            password_field.clear()
+            password_field.send_keys(config.VEOLIA_PASSWORD)
+            time.sleep(2)
+            
+            login_button = browser.find_element_by_xpath("//button[contains(.,'VALIDER')]")
+            
+            self.take_screenshot("1_login_form")
 
-#Bien indiquer l'emplacement de geckodriver
-browser = webdriver.Firefox(firefox_profile=profile, options=options, executable_path=r'/usr/local/bin/geckodriver', service_log_path='./geckodriver.log')
+            login_button.click()
+            time.sleep(5)
+            self.take_screenshot("2_logedin_form")
+            
+            logging.debug('browsing to %s'%url_conso)
+            browser.get(url_conso)
+            time.sleep(15)
+            self.take_screenshot("3_conso")
+            
+            # downloadFileButton = browser.find_element_by_class_name("btn-green.slds-button.slds-button_icon.slds-text-title_caps")
+            # downloadFileButton = browser.find_elements_by_css_selector(".slds-button_icon.slds-text-title_caps")
+            downloadFileButton = browser.find_element_by_xpath("//button[contains(., 'charger la')]")
+            downloadFileButton.click()
+        except Exception as e:
+            logging.error("Got on exception", exc_info=True)
+            self.take_screenshot("on_exception")
 
-logger.info('Page de login')
-browser.get(('https://espace-client.vedif.eau.veolia.fr/s/login/'))
-browser.implicitly_wait(10)
+    def handle_csv(self):
+        csv_files = glob.glob('%s/*.csv'%config.DOWNLOAD_DIR_TMP)
+        assert len(csv_files)==1
+        csv_file = open(csv_files[0])
+        reader = csv.reader(csv_file, delimiter=';')
+        r = [e for e in reader]
+        logging.debug(r)
+        if len(r) != 91:
+            logging.warning("Unexpected number of lines in csv file")
+        j = json.dumps(r)
+        jeedom_php_history_veolia_path = os.path.join(config.BASE_DIR, "jeedom_php_history_veolia.php")
+        stdout_ = os.system(
+            "php {jeedom_php_history_veolia_path} {jeedom_cmd_index} {jeedom_cmd_conso_24h} '{json_data}'".format(
+                jeedom_php_history_veolia_path=jeedom_php_history_veolia_path,
+                jeedom_cmd_index=config.JEEDOM_CMD_INDEX, 
+                jeedom_cmd_conso_24h=config.JEEDOM_CMD_CONSO_24H, 
+                json_data=j
+            )
+        )
+        logging.debug(stdout_)
 
-# Recherche et remplis les champs d'identification
-idEmail = browser.find_element_by_id('input-4')
-idPassword = browser.find_element_by_css_selector('input[type="password"]')
-
-idEmail.clear()
-idEmail.send_keys(veolia_login)
-time.sleep(3)
-
-idPassword.clear()
-idPassword.send_keys(veolia_password)
-time.sleep(3)
-
-loginButton = browser.find_element_by_class_name('submit-button')
-loginButton.click()
-time.sleep(2)
-
-logger.info('Page de consommation')
-browser.get(urlConso)
-time.sleep(15)
-
-logger.info('Téléchargement du fichier')
-downloadFileButton = browser.find_element_by_class_name("slds-button.slds-text-title_caps")
-downloadFileButton.click()
-
-browser.close()
-
-display.stop()
-
-logger.info('Fichier:' + downloadFile)
+    def clean(self):
+        logging.debug("cleaning up")
+        self.browser.close()
+        self.display.stop()
+        
+if __name__ == '__main__':
+    v = VeoliaIdf()
+    logging.info("Getting csv file")
+    v.get_csv()
+    logging.info("Processing downloaded file")
+    v.handle_csv()
+    v.clean()

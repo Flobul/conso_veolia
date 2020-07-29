@@ -1,33 +1,21 @@
 # conso_veolia
-Script python pour télécharger le fichier de consommation
+Based on Flobul/conso_veolia
+
+Recupere la consomation d'eau sur le site Veolia IDF, puis injecte les données historiques dans jeedom.
+L'insertion de données historiques n'est pas disponible dans l'api jsonrpc de jeedom, un appel a un script php est fait pour pouvoir effectuer l'insertion des données.
 
 ## Installation
 
 ```bash
-sudo apt-get install python3 xvfb iceweasel
-sudo pip install selenium pyvirtualdisplay urllib3
+git clone https://github.com/jbfuzier/conso_veolia.git
+cd conso_veolia
+apt-get install python3 xvfb iceweasel
+virtualenv venv -p python3
+source venv/bin/activate
+pip install -r requirements.txt
 64bit : wget https://github.com/mozilla/geckodriver/releases/download/v0.26.0/geckodriver-v0.26.0-linux64.tar.gz && tar xzfz geckodriver-v0.26.0-linux64.tar.gz && sudo mv geckodriver /usr/local/bin && rm geckodriver-v0.26.0-linux64.tar.gz
 32bit : wget https://github.com/mozilla/geckodriver/releases/download/v0.26.0/geckodriver-v0.26.0-linux32.tar.gz && tar xzfz geckodriver-v0.26.0-linux32.tar.gz && sudo mv geckodriver /usr/local/bin && rm geckodriver-v0.26.0-linux32.tar.gz
-git clone -b master https://github.com/Flobul/conso_veolia.git
 ```
 
-Remplissez votre identifiant et mot de passe dans le champ :
+Adapter le fichier config.py
 
-```#Informations de connexion
-veolia_login = 'mon.adresse@email.com'
-veolia_password = 'M-eau2P@ss'
-```
-
-Et modifiez le répertoire de sauvegarde du fichier.
-
-
-## Résultat
-
-```
-$ python3 get_veolia_idf_consommation.py
-2020-02-22 15:44:12,918 :: INFO :: Successfully started X with display ":1164".
-2020-02-22 15:44:15,139 :: INFO :: Page de login
-2020-02-22 15:44:27,472 :: INFO :: Page de consommation
-2020-02-22 15:44:43,565 :: INFO :: Téléchargement du fichier
-2020-02-22 15:44:44,775 :: INFO :: Fichier: /home/toto/Documents/historique_jours_litres.csv
-```
