@@ -1,0 +1,64 @@
+import os
+import sys
+BASE_DIR = os.path.abspath(os.path.dirname(__file__))
+DOWNLOAD_DIR_TMP = os.path.join(os.path.abspath(os.path.dirname(__file__)), 'tmp')
+try:
+    os.mkdir(DOWNLOAD_DIR_TMP)
+except:
+    pass
+GECKODRIVER_PATH = os.path.join(BASE_DIR, 'geckodriver')
+VEOLIA_LOGIN = 'XXXX@gmail.com'
+VEOLIA_PASSWORD = 'XXXX'
+
+# Creer un equipemen virtuel dans jeedom (plugin virtuel), avec 2 commandes de types info. Renseigner l'Id de ces deux commandes ici
+JEEDOM_CMD_INDEX = 5583
+JEEDOM_CMD_CONSO_24H = 5584
+
+LOGGING_CONFIG = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'standard': {
+            # 'format': '%(asctime)-15s - %(process)d [%(levelname)s] %(name)s: %(message)s'
+            'format': '%(asctime)-15s - %(process)d %(filename)s@%(funcName)s:%(lineno)d [%(levelname)s] %(name)s: %(message)s'
+        },
+    },
+    'handlers': {
+        'default': {
+            'level': 'DEBUG',
+            'formatter': 'standard',
+            'class': 'logging.StreamHandler',
+        },
+        'file': {
+            'level': 'DEBUG',
+            'formatter': 'standard',
+            'class': 'logging.handlers.RotatingFileHandler',
+            'filename': os.path.join('logs', '%s.log' % os.path.basename(sys.argv[0])),
+            'maxBytes': 1*1024*1024,
+            'backupCount': 1,
+        },
+        'syslog': {
+            'level': 'INFO',
+            'class': 'logging.handlers.SysLogHandler',
+            'address': ('127.0.0.1', 514),
+            'socktype': 2,  # 1=tcp 2=ud^p
+            'formatter': 'standard',
+        },
+        'smtp': {
+            'level': 'ERROR',
+            'formatter': 'standard',
+            'class': 'logging.handlers.SMTPHandler',
+            'mailhost': '127.0.0.1',
+            'fromaddr': 'me@me.me',
+            'toaddrs': '@gmail.com',
+            'subject': '%s Error'%os.path.basename(sys.argv[0]),
+        },
+    },
+    'loggers': {
+        '': {
+            'handlers': ['default', 'file'],#, 'syslog', 'smtp'],
+            'level': 'DEBUG',
+            'propagate': True
+        },
+    }
+}
