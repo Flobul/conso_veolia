@@ -80,6 +80,7 @@ class VeoliaIdf:
         except Exception as e:
             logging.error("Got on exception", exc_info=True)
             self.take_screenshot("on_exception")
+            self.clean()
 
     def handle_csv(self):
         csv_files = glob.glob('%s/*.csv'%config.DOWNLOAD_DIR_TMP)
@@ -109,8 +110,12 @@ class VeoliaIdf:
         
 if __name__ == '__main__':
     v = VeoliaIdf()
-    logging.info("Getting csv file")
-    v.get_csv()
-    logging.info("Processing downloaded file")
-    v.handle_csv()
-    v.clean()
+    try:
+        logging.info("Getting csv file")
+        v.get_csv()
+        logging.info("Processing downloaded file")
+        v.handle_csv()
+    except Exception as e:
+        raise e
+    finally:
+        v.clean()
