@@ -87,6 +87,7 @@ class VeoliaIdf:
         assert len(csv_files)==1
         csv_file = open(csv_files[0])
         reader = csv.reader(csv_file, delimiter=';')
+        next(reader)
         r = [e for e in reader]
         logging.debug(r)
         if len(r) != 91:
